@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animated Cytoscape Flowchart</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 600;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+        }
+        
+        #cy {
+            width: 100%;
+            height: 600px;
+            background: #f8fafc;
+        }
+        
+        .controls {
+            padding: 20px;
+            background: #f1f5f9;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
+        }
+        
+        .animation-controls {
+            margin-top: 15px;
+        }
+        
+        .speed-control {
+            margin: 0 15px;
+        }
+        
+        .speed-control label {
+            display: inline-block;
+            margin-right: 8px;
+            font-weight: 500;
+            color: #475569;
+        }
+        
+        .speed-control input {
+            width: 100px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌊 Animated Data Flow Chart</h1>
+            <p>Interactive flowchart with animated flowing lines showing data movement</p>
+        </div>
+        
+        <div id="cy"></div>
+        
+        <div class="controls">
+            <button class="btn" onclick="startAnimation()">▶️ Start Flow</button>
+            <button class="btn" onclick="stopAnimation()">⏹️ Stop Flow</button>
+            <button class="btn" onclick="resetLayout()">🔄 Reset Layout</button>
+            
+            <div class="animation-controls">
+                <div class="speed-control">
+                    <label for="speed">Flow Speed:</label>
+                    <input type="range" id="speed" min="100" max="2000" value="800" onchange="updateSpeed(this.value)">
+                    <span id="speedValue">800ms</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let cy;
+        let animationInterval;
+        let animationSpeed = 800;
+        
+        // Initialize Cytoscape
+        function initCytoscape() {
+            cy = cytoscape({
+                container: document.getElementById('cy'),
+                
+                elements: [
+                    // Nodes
+                    { data: { id: 'start', label: '🚀 Start\nProcess' }, position: { x: 100, y: 150 } },
+                    { data: { id: 'input', label: '📥 Data\nInput' }, position: { x: 300, y: 100 } },
+                    { data: { id: 'validate', label: '✅ Data\nValidation' }, position: { x: 500, y: 150 } },
+                    { data: { id: 'process', label: '⚙️ Data\nProcessing' }, position: { x: 700, y: 100 } },
+                    { data: { id: 'analyze', label: '📊 Data\nAnalysis' }, position: { x: 900, y: 150 } },
+                    { data: { id: 'decision', label: '🤔 Quality\nCheck' }, position: { x: 700, y: 300 } },
+                    { data: { id: 'store', label: '💾 Store\nResults' }, position: { x: 500, y: 350 } },
+                    { data: { id: 'output', label: '📤 Final\nOutput' }, position: { x: 300, y: 300 } },
+                    { data: { id: 'end', label: '🎯 Complete' }, position: { x: 100, y: 350 } },
+                    
+                    // Edges
+                    { data: { id: 'e1', source: 'start', target: 'input' } },
+                    { data: { id: 'e2', source: 'input', target: 'validate' } },
+                    { data: { id: 'e3', source: 'validate', target: 'process' } },
+                    { data: { id: 'e4', source: 'process', target: 'analyze' } },
+                    { data: { id: 'e5', source: 'analyze', target: 'decision' } },
+                    { data: { id: 'e6', source: 'decision', target: 'store', label: 'Pass' } },
+                    { data: { id: 'e7', source: 'decision', target: 'process', label: 'Retry' } },
+                    { data: { id: 'e8', source: 'store', target: 'output' } },
+                    { data: { id: 'e9', source: 'output', target: 'end' } }
+                ],
+                
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'background-color': '#4f46e5',
+                            'background-gradient-direction': 'to-bottom-right',
+                            'background-gradient-stop-colors': '#4f46e5 #7c3aed',
+                            'color': 'white',
+                            'label': 'data(label)',
+                            'text-valign': 'center',
+                            'text-halign': 'center',
+                            'text-wrap': 'wrap',
+                            'text-max-width': '80px',
+                            'font-size': '12px',
+                            'font-weight': 'bold',
+                            'width': '80px',
+                            'height': '80px',
+                            'border-width': '3px',
+                            'border-color': '#ffffff',
+                            'border-opacity': 0.8,
+                            'shadow-blur': '10px',
+                            'shadow-color': '#4f46e5',
+                            'shadow-opacity': 0.3,
+                            'transition-property': 'background-color, border-color, shadow-blur',
+                            'transition-duration': '0.3s'
+                        }
+                    },
+                    {
+                        selector: 'node:hover',
+                        style: {
+                            'background-color': '#7c3aed',
+                            'border-color': '#fbbf24',
+                            'shadow-blur': '15px',
+                            'shadow-opacity': 0.5
+                        }
+                    },
+                    {
+                        selector: 'edge',
+                        style: {
+                            'width': '4px',
+                            'line-color': '#64748b',
+                            'target-arrow-color': '#64748b',
+                            'target-arrow-shape': 'triangle',
+                            'target-arrow-size': '12px',
+                            'curve-style': 'bezier',
+                            'control-point-step-size': '40px',
+                            'label': 'data(label)',
+                            'font-size': '11px',
+                            'font-weight': 'bold',
+                            'text-background-color': 'white',
+                            'text-background-opacity': 0.8,
+                            'text-background-padding': '3px',
+                            'text-border-color': '#64748b',
+                            'text-border-width': '1px',
+                            'text-border-opacity': 0.5,
+                            'color': '#374151'
+                        }
+                    },
+                    {
+                        selector: '.animated',
+                        style: {
+                            'line-color': '#10b981',
+                            'target-arrow-color': '#10b981',
+                            'width': '6px',
+                            'line-style': 'dashed',
+                            'line-dash-pattern': [10, 5],
+                            'line-dash-offset': 0
+                        }
+                    },
+                    {
+                        selector: '.flowing',
+                        style: {
+                            'line-color': '#f59e0b',
+                            'target-arrow-color': '#f59e0b',
+                            'width': '8px',
+                            'shadow-blur': '8px',
+                            'shadow-color': '#f59e0b',
+                            'shadow-opacity': 0.6
+                        }
+                    }
+                ],
+                
+                layout: {
+                    name: 'preset',
+                    fit: true,
+                    padding: 50
+                },
+                
+                // Interaction options
+                zoomingEnabled: true,
+                userZoomingEnabled: true,
+                panningEnabled: true,
+                userPanningEnabled: true,
+                boxSelectionEnabled: false,
+                selectionType: 'single',
+                
+                // Rendering options
+                motionBlur: true,
+                motionBlurOpacity: 0.2,
+                wheelSensitivity: 0.1,
+                pixelRatio: 'auto'
+            });
+            
+            // Add hover effects for nodes
+            cy.on('mouseover', 'node', function(evt) {
+                const node = evt.target;
+                node.animate({
+                    style: { 'width': '90px', 'height': '90px' }
+                }, { duration: 200 });
+            });
+            
+            cy.on('mouseout', 'node', function(evt) {
+                const node = evt.target;
+                node.animate({
+                    style: { 'width': '80px', 'height': '80px' }
+                }, { duration: 200 });
+            });
+        }
+        
+        function startAnimation() {
+            stopAnimation(); // Clear any existing animation
+            
+            const edges = cy.edges();
+            let currentIndex = 0;
+            
+            // Reset all edges
+            edges.removeClass('animated flowing');
+            
+            animationInterval = setInterval(() => {
+                // Remove previous animations
+                edges.removeClass('flowing');
+                
+                if (currentIndex < edges.length) {
+                    const currentEdge = edges[currentIndex];
+                    
+                    // Add flowing effect to current edge
+                    currentEdge.addClass('flowing');
+                    
+                    // Animate the dash offset for flowing effect
+                    let dashOffset = 0;
+                    const dashInterval = setInterval(() => {
+                        dashOffset += 2;
+                        currentEdge.style('line-dash-offset', dashOffset);
+                        
+                        if (dashOffset > 50) {
+                            clearInterval(dashInterval);
+                        }
+                    }, 50);
+                    
+                    // Highlight connected nodes
+                    const sourceNode = currentEdge.source();
+                    const targetNode = currentEdge.target();
+                    
+                    sourceNode.animate({
+                        style: { 'background-color': '#10b981' }
+                    }, { duration: 300 });
+                    
+                    setTimeout(() => {
+                        targetNode.animate({
+                            style: { 'background-color': '#10b981' }
+                        }, { duration: 300 });
+                    }, animationSpeed / 2);
+                    
+                    // Reset node colors after animation
+                    setTimeout(() => {
+                        sourceNode.animate({
+                            style: { 'background-color': '#4f46e5' }
+                        }, { duration: 300 });
+                        targetNode.animate({
+                            style: { 'background-color': '#4f46e5' }
+                        }, { duration: 300 });
+                        currentEdge.removeClass('flowing');
+                    }, animationSpeed);
+                    
+                    currentIndex++;
+                } else {
+                    // Reset to beginning
+                    currentIndex = 0;
+                }
+            }, animationSpeed);
+        }
+        
+        function stopAnimation() {
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+            }
+            
+            // Reset all styles
+            cy.edges().removeClass('animated flowing');
+            cy.nodes().animate({
+                style: { 'background-color': '#4f46e5' }
+            }, { duration: 300 });
+        }
+        
+        function resetLayout() {
+            stopAnimation();
+            cy.fit();
+            cy.center();
+        }
+        
+        function updateSpeed(value) {
+            animationSpeed = parseInt(value);
+            document.getElementById('speedValue').textContent = value + 'ms';
+            
+            // Restart animation with new speed if it's currently running
+            if (animationInterval) {
+                startAnimation();
+            }
+        }
+        
+        // Initialize the flowchart when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initCytoscape();
+        });
+    </script>
+</body>
+</html>

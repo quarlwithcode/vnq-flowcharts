@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Workflow Animated Flowchart</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 600;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+        }
+        
+        #cy {
+            width: 100%;
+            height: 600px;
+            background: #f8fafc;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            pointer-events: none;
+            z-index: 1000;
+            max-width: 200px;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .tooltip.show {
+            opacity: 1;
+        }
+        
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #1e40af transparent transparent transparent;
+        }
+        
+        .controls {
+            padding: 20px;
+            background: #f1f5f9;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+        }
+        
+        .animation-controls {
+            margin-top: 15px;
+        }
+        
+        .speed-control {
+            margin: 0 15px;
+        }
+        
+        .speed-control label {
+            display: inline-block;
+            margin-right: 8px;
+            font-weight: 500;
+            color: #475569;
+        }
+        
+        .speed-control input {
+            width: 100px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Workflow Animation</h1>
+            <p>Interactive flowchart showing the AI interaction cycle</p>
+        </div>
+        
+        <div id="cy"></div>
+        <div id="tooltip" class="tooltip"></div>
+        
+        <div class="controls">
+            <button class="btn" onclick="startAnimation()">▶️ Start AI Flow</button>
+            <button class="btn" onclick="stopAnimation()">⏹️ Stop Flow</button>
+            <button class="btn" onclick="resetLayout()">🔄 Reset Layout</button>
+            
+            <div class="animation-controls">
+                <div class="speed-control">
+                    <label for="speed">Flow Speed:</label>
+                    <input type="range" id="speed" min="500" max="3000" value="1200" onchange="updateSpeed(this.value)">
+                    <span id="speedValue">1200ms</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let cy;
+        let animationInterval;
+        let animationSpeed = 1200;
+        
+        // Initialize Cytoscape
+        function initCytoscape() {
+            cy = cytoscape({
+                container: document.getElementById('cy'),
+                
+                elements: [
+                    // Nodes with tooltip data
+                    { data: { id: 'user', label: '👤 User', tooltip: 'The person interacting with the AI system. Initiates requests and receives responses.' }, position: { x: 150, y: 200 } },
+                    { data: { id: 'prompt', label: '💬 Prompt', tooltip: 'The input message or question sent to the AI. Contains instructions or queries.' }, position: { x: 400, y: 200 } },
+                    { data: { id: 'api', label: '🤖 AI API', tooltip: 'The artificial intelligence service that processes requests and generates responses.' }, position: { x: 650, y: 200 } },
+                    { data: { id: 'response', label: '📄 Response', tooltip: 'The AI-generated answer or output returned to the user.' }, position: { x: 400, y: 400 } },
+                    
+                    // Edges
+                    { data: { id: 'e1', source: 'user', target: 'prompt', label: 'Creates' } },
+                    { data: { id: 'e2', source: 'prompt', target: 'api', label: 'Sends to' } },
+                    { data: { id: 'e3', source: 'api', target: 'response', label: 'Generates' } },
+                    { data: { id: 'e4', source: 'response', target: 'user', label: 'Returns to' } }
+                ],
+                
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'shape': 'rectangle',
+                            'background-color': '#ffffff',
+                            'color': '#000000',
+                            'label': 'data(label)',
+                            'text-valign': 'center',
+                            'text-halign': 'center',
+                            'text-wrap': 'wrap',
+                            'text-max-width': '100px',
+                            'font-size': '14px',
+                            'font-weight': 'bold',
+                            'width': '120px',
+                            'height': '80px',
+                            'border-width': '3px',
+                            'border-color': '#000000',
+                            'border-opacity': 1,
+                            'transition-property': 'background-color, border-color, width, height',
+                            'transition-duration': '0.3s'
+                        }
+                    },
+                    {
+                        selector: 'node:hover',
+                        style: {
+                            'background-color': '#f3f4f6',
+                            'border-color': '#374151'
+                        }
+                    },
+                    {
+                        selector: 'edge',
+                        style: {
+                            'width': '5px',
+                            'line-color': '#64748b',
+                            'target-arrow-color': '#64748b',
+                            'target-arrow-shape': 'triangle',
+                            'curve-style': 'bezier',
+                            'control-point-step-size': '60px',
+                            'label': 'data(label)',
+                            'font-size': '12px',
+                            'font-weight': 'bold',
+                            'text-background-color': 'white',
+                            'text-background-opacity': 0.9,
+                            'text-background-padding': '4px',
+                            'text-border-color': '#64748b',
+                            'text-border-width': '1px',
+                            'text-border-opacity': 0.7,
+                            'color': '#374151',
+                            'text-rotation': 'autorotate'
+                        }
+                    },
+                    {
+                        selector: '.flowing',
+                        style: {
+                            'line-color': '#10b981',
+                            'target-arrow-color': '#10b981',
+                            'width': '8px',
+                            'line-style': 'dashed',
+                            'line-dash-pattern': [15, 8],
+                            'line-dash-offset': 0
+                        }
+                    },
+                    {
+                        selector: '.active-node',
+                        style: {
+                            'background-color': '#dbeafe',
+                            'color': '#1e40af',
+                            'border-color': '#2563eb',
+                            'border-width': '4px',
+                            'width': '140px',
+                            'height': '95px',
+                            'font-size': '16px',
+                            'font-weight': '900'
+                        }
+                    }
+                ],
+                
+                layout: {
+                    name: 'preset',
+                    fit: true,
+                    padding: 80
+                },
+                
+                // Interaction options
+                zoomingEnabled: true,
+                userZoomingEnabled: true,
+                panningEnabled: true,
+                userPanningEnabled: true,
+                boxSelectionEnabled: false,
+                selectionType: 'single',
+                
+                // Rendering options
+                motionBlur: true,
+                motionBlurOpacity: 0.2,
+                wheelSensitivity: 0.5,
+                pixelRatio: 'auto'
+            });
+            
+            // Add hover effects for nodes
+            cy.on('mouseover', 'node', function(evt) {
+                const node = evt.target;
+                if (!node.hasClass('active-node')) {
+                    node.animate({
+                        style: { 'width': '140px', 'height': '95px' }
+                    }, { duration: 200 });
+                }
+            });
+            
+            cy.on('mouseout', 'node', function(evt) {
+                const node = evt.target;
+                if (!node.hasClass('active-node')) {
+                    node.animate({
+                        style: { 'width': '120px', 'height': '80px' }
+                    }, { duration: 200 });
+                }
+            });
+            
+            // Add tooltip functionality
+            const tooltip = document.getElementById('tooltip');
+            
+            cy.on('mouseover', 'node', function(evt) {
+                const node = evt.target;
+                const tooltipText = node.data('tooltip');
+                if (tooltipText) {
+                    tooltip.innerHTML = tooltipText;
+                    tooltip.classList.add('show');
+                }
+            });
+            
+            cy.on('mouseout', 'node', function(evt) {
+                tooltip.classList.remove('show');
+            });
+            
+            cy.on('mousemove', function(evt) {
+                if (tooltip.classList.contains('show')) {
+                    tooltip.style.left = evt.originalEvent.pageX - tooltip.offsetWidth / 2 + 'px';
+                    tooltip.style.top = evt.originalEvent.pageY - tooltip.offsetHeight - 10 + 'px';
+                }
+            });
+            
+            // Click event for mobile/touch devices
+            cy.on('tap', 'node', function(evt) {
+                const node = evt.target;
+                const tooltipText = node.data('tooltip');
+                if (tooltipText) {
+                    tooltip.innerHTML = tooltipText;
+                    tooltip.classList.add('show');
+                    tooltip.style.left = evt.renderedPosition.x - tooltip.offsetWidth / 2 + 'px';
+                    tooltip.style.top = evt.renderedPosition.y - tooltip.offsetHeight - 10 + 'px';
+                    
+                    // Hide tooltip after 3 seconds on mobile
+                    setTimeout(() => {
+                        tooltip.classList.remove('show');
+                    }, 3000);
+                }
+            });
+        }
+        
+        function startAnimation() {
+            stopAnimation(); // Clear any existing animation
+            
+            const flowSequence = [
+                { edge: 'e1', sourceNode: 'user', targetNode: 'prompt' },
+                { edge: 'e2', sourceNode: 'prompt', targetNode: 'api' },
+                { edge: 'e3', sourceNode: 'api', targetNode: 'response' },
+                { edge: 'e4', sourceNode: 'response', targetNode: 'user' }
+            ];
+            
+            let currentIndex = 0;
+            const tooltip = document.getElementById('tooltip');
+            const nodeActiveDuration = 5000; // 5 seconds for each node
+            
+            // Reset all styles
+            cy.edges().removeClass('flowing');
+            cy.nodes().removeClass('active-node');
+            tooltip.classList.remove('show');
+            
+            function animateStep() {
+                // Remove previous effects
+                cy.edges().removeClass('flowing');
+                cy.nodes().removeClass('active-node');
+                tooltip.classList.remove('show');
+                
+                if (currentIndex < flowSequence.length) {
+                    const currentFlow = flowSequence[currentIndex];
+                    const currentEdge = cy.getElementById(currentFlow.edge);
+                    const sourceNode = cy.getElementById(currentFlow.sourceNode);
+                    const targetNode = cy.getElementById(currentFlow.targetNode);
+                    
+                    // Simultaneously activate source node, show tooltip, and start line animation
+                    sourceNode.addClass('active-node');
+                    showTooltipForNode(sourceNode);
+                    currentEdge.addClass('flowing');
+                    
+                    // Start the continuous dash animation immediately
+                    let dashOffset = 60;
+                    const dashInterval = setInterval(() => {
+                        dashOffset -= 2;
+                        currentEdge.style('line-dash-offset', dashOffset);
+                        
+                        if (dashOffset < -60) {
+                            dashOffset = 60; // Reset for continuous flow
+                        }
+                    }, 100);
+                    
+                    // After 5 seconds, move to target node
+                    setTimeout(() => {
+                        // Clean up source node and line
+                        sourceNode.removeClass('active-node');
+                        currentEdge.removeClass('flowing');
+                        clearInterval(dashInterval);
+                        
+                        // Immediately activate target node and show its tooltip
+                        targetNode.addClass('active-node');
+                        showTooltipForNode(targetNode);
+                        
+                        // After another 5 seconds, clean up target and move to next step
+                        setTimeout(() => {
+                            targetNode.removeClass('active-node');
+                            tooltip.classList.remove('show');
+                            currentIndex++;
+                            
+                            // Continue to next step or restart cycle
+                            if (currentIndex >= flowSequence.length) {
+                                currentIndex = 0; // Reset for continuous loop
+                            }
+                            
+                            // Schedule next animation step
+                            animationInterval = setTimeout(animateStep, 500); // Small pause between cycles
+                        }, nodeActiveDuration);
+                        
+                    }, nodeActiveDuration);
+                    
+                } else {
+                    // Reset to beginning for continuous loop
+                    currentIndex = 0;
+                    cy.nodes().removeClass('active-node');
+                    tooltip.classList.remove('show');
+                    animationInterval = setTimeout(animateStep, 1000);
+                }
+            }
+            
+            // Start the animation
+            animateStep();
+        }
+        
+        function showTooltipForNode(node) {
+            const tooltip = document.getElementById('tooltip');
+            const tooltipText = node.data('tooltip');
+            const renderedPosition = node.renderedPosition();
+            
+            if (tooltipText) {
+                tooltip.innerHTML = tooltipText;
+                tooltip.classList.add('show');
+                
+                // Position tooltip above the active node
+                const cyContainer = document.getElementById('cy');
+                const containerRect = cyContainer.getBoundingClientRect();
+                
+                tooltip.style.left = (containerRect.left + renderedPosition.x - tooltip.offsetWidth / 2) + 'px';
+                tooltip.style.top = (containerRect.top + renderedPosition.y - tooltip.offsetHeight - 15) + 'px';
+            }
+        }
+        
+        function stopAnimation() {
+            if (animationInterval) {
+                clearTimeout(animationInterval);
+                animationInterval = null;
+            }
+            
+            // Reset all styles and hide tooltip
+            cy.edges().removeClass('flowing');
+            cy.nodes().removeClass('active-node');
+            document.getElementById('tooltip').classList.remove('show');
+        }
+        
+        function resetLayout() {
+            stopAnimation();
+            cy.fit();
+            cy.center();
+        }
+        
+        function updateSpeed(value) {
+            animationSpeed = parseInt(value);
+            document.getElementById('speedValue').textContent = value + 'ms';
+            
+            // Restart animation with new speed if it's currently running
+            if (animationInterval) {
+                startAnimation();
+            }
+        }
+        
+        // Initialize the flowchart when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initCytoscape();
+        });
+    </script>
+</body>
+</html>
